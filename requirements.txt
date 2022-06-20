@@ -1,0 +1,14 @@
+numpy==1.21.4
+scikit-learn==1.0.1
+six==1.16.0
+tensorflow>=2.6.0,<=2.8
+tokenizers==0.10.3
+transformers==4.11.3
+pandas~=1.4.0
+dataclasses~=0.8
+tqdm~=4.62.3
+keras~=2.6.0
+mlflow~=1.23.1
+sacred~=0.8.2
+dgl~=0.7.2
+loguru~=0.6.0
