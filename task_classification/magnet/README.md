@@ -1,0 +1,1 @@
+MAGNET: Multi-Label Text Classification using Attention-based Graph Neural Network 通过构建标签之间的图网络，建模标签依赖，用于多标签分类
