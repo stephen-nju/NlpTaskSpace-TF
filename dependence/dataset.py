@@ -72,7 +72,7 @@ class DataProcessorBase(object):
 
     @classmethod
     def _read_tsv(cls, input_file, quotechar=None):
-        with tf.io.gfile.GFile(input_file, "r") as f:
+        with open(input_file,"r",encoding="utf-8") as f:
             reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
             lines = []
             for line in reader:

@@ -4,6 +4,7 @@
 @author: zhubin
 """
 
+import itertools
 import json
 import argparse
 import os
@@ -105,12 +106,12 @@ class DataProcessorFunctions(DataProcessorBase):
         return feature
 
 class DataSequence(Sequence):
-    def __init__(self, features, token_pad_id, num_classes, batch_size):
+    def __init__(self, features, token_pad_id, num_classes, batch_size,max_length):
         self.batch_size = batch_size
         self.features = features
         self.token_pad_id = token_pad_id
         self.num_classes = num_classes
-
+        self.max_length=max_length
     def __len__(self):
         return int(np.ceil(len(self.features) / float(self.batch_size)))
 
@@ -124,7 +125,7 @@ class DataSequence(Sequence):
         for feature in features:
             batch_token_ids.append(feature.input_ids)
             batch_labels.append(feature.label_id)
-        batch_token_ids = sequence_padding(batch_token_ids,length=128 ,value=self.token_pad_id)
+        batch_token_ids = sequence_padding(batch_token_ids,length=self.max_length,value=self.token_pad_id)
         
         return  batch_token_ids, to_categorical(np.array(batch_labels, dtype=float),
                                                                      num_classes=self.num_classes)
@@ -164,6 +165,7 @@ class ClassificationReporter(Callback):
         self.val_f1s.append(_val_f1)
         self.val_recalls.append(_val_recall)
         self.val_precisions.append(_val_precision)
+        print("\n")
         print(classification_report(val_true, val_pred, digits=4))
         return
 
@@ -177,7 +179,7 @@ if __name__ == '__main__':
     parse.add_argument("--batch_size", type=int, default=4, help="batch size")
     parse.add_argument("--embedding_dim",type=int,default=300,help="word embedding dim")
     parse.add_argument("--smoothing", type=float, default=0.1, help="batch size")
-    parse.add_argument("--max_length", type=int, default=128, help="max sequence length")
+    parse.add_argument("--max_length", type=int, default=64, help="max sequence length")
     parse.add_argument("--epochs", type=int, default=2, help="number of training epoch")
     parse.add_argument("--loss_type", type=str, default="ce", choices=["ce", "focal_loss"],
                        help="use bce for binary cross entropy loss and focal for focal loss")
@@ -201,7 +203,6 @@ if __name__ == '__main__':
     if os.path.exists(log_dir):
         # 清除日志
         logger.info(f"remove log before in {log_dir} ")
-        os.removedirs(log_dir)
     else:
         os.makedirs(log_dir)
     
@@ -226,17 +227,18 @@ if __name__ == '__main__':
                                                           max_length=args.max_length,
                                                           label_encode=label_encode)
 
-    print(train_features[1])
 
     train_sequence = DataSequence(train_features,
                                   token_pad_id=0,
                                   num_classes=len(label_encode.classes_),
-                                  batch_size=args.batch_size)
+                                  batch_size=args.batch_size,
+                                  max_length=args.max_length)
     # 加载验证集数据   
     dev_sequence = DataSequence(dev_features,
                                 token_pad_id=0,
                                 num_classes=len(label_encode.classes_),
-                                batch_size=args.batch_size)
+                                batch_size=args.batch_size,
+                                max_length=args.max_length)
 
     #####添加callback#########################################################
     report = ClassificationReporter(validation_data=dev_sequence)
@@ -258,6 +260,7 @@ if __name__ == '__main__':
     strategy = tf.distribute.MirroredStrategy()
     logger.info(f"{strategy.num_replicas_in_sync} number of devices")
     
+    ########注意词典大小################
     vocab_size=len(tokenizer.word_index)+1
     print(f"vocab_size==={vocab_size}")
     # 卷积和大小
@@ -310,8 +313,6 @@ if __name__ == '__main__':
                           optimizer=lr_schedule
                           )
     model.summary()
-    # for a in train_sequence:
-    #     print(a)
     model.fit(train_sequence,
               batch_size=args.batch_size,
               validation_data=dev_sequence,
